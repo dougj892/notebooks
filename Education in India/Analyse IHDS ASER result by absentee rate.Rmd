@@ -1,0 +1,44 @@
+---
+title: "Analyse ASER results by absentee rate"
+output: html_notebook
+---
+
+Load necessary packages in setup chunk.
+```{r setup}
+library(tidyverse)
+library(haven)
+```
+
+Import just the variables we need from the IHDS 2012 DS0001 dataset.
+```{r}
+ihds_ind_dir <- "C:/Users/dougj/Documents/Data/IHDS/IHDS 2012/DS0001"
+ind_file <- file.path(ihds_ind_dir, "36151-0001-Data.dta")
+# read in just those variables that i need
+# this is much faster than reading in everything and then selecting
+df <- read_dta(ind_file, col_select = c(STATEID, PSUID, HHID, HHSPLITID, PERSONID, IDPSU, WT, RO3, RO7, RO5, starts_with("CS"), starts_with("TA"), starts_with("ED")) )
+```
+
+Inspect the CS13 variable which is self-reported number of days absent from school each month. Only look at observations for which we have ASER score and the child attends a govt or govt aided school.
+```{r}
+attributes(df$CS13)
+# simple tab of CS13 --> note that the max value is 30.
+df %>% filter(!is.na(TA8B)) %>%
+  filter(CS4 == 2 | CS4 == 3) %>%
+  group_by(CS13) %>% 
+  count()
+
+# check that this is not missing for kids with ASER results --> looks like there are only a few NAs
+df %>% filter(!is.na(TA8B)) %>% summarise(non_na_count = sum(!is.na(CS13)), na_count = sum(is.na(CS13)) )
+```
+
+Compare average ASER score for different levels of absence for kids attending govt schools. The graph seems to be a little all over the place, but there are very few instances where absence was greater than 10 so it makes more sense to focus on the average ASER scores when days_absent <= 10.  In this area of the graph, it seems like absence is negatively correlated with ASER score.
+
+```{r}
+temp <- df %>% filter(!is.na(TA8B) & !is.na(CS13)) %>% 
+  filter(CS4 == 2 | CS4 == 3) %>%
+  group_by(CS13) %>% 
+  summarise(ASER_score = weighted.mean(TA8B, WT)) %>% 
+  rename(days_absent = CS13)
+ggplot(temp, aes(x = days_absent, y = ASER_score)) + geom_line()
+```
+
