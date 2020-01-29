@@ -1,8 +1,8 @@
 ---
 title: "Overview of IHDS 2012 Education Data"
 output:
-  html_notebook: default
   pdf_document: default
+  html_notebook: default
 ---
 
 # Overview of IHDS data
