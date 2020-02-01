@@ -1,15 +1,18 @@
 ---
 title: "Overview of IHDS 2012 Education Data"
 output:
-  pdf_document: default
   html_notebook: default
+  pdf_document: default
 ---
 
-# Overview of IHDS data
+## Summary
+This notebook provides a detailed description of the IHDS 2011-12 household dataset and accompanying documentation. It also provides sample code to import the household dataset and use the survey and srvyr packages to perform inference using the dataset
+
+## Overview of IHDS data
 IHDS is a panel survey led by Sonalde Desai and others at NCAER/UofMd.  The first round of the panel was conducted in 2004-05 and the second wave was conducted in 2011-12.  In both rounds of the survey they administered a test similar to the ASER test to all children aged 8-11. (The response rate for the ASER survey was not great though.  In their publication for the India Policy Forum, Sonalde explains the reasons for this I think.) In addition, the survey asked basic questions about enrollment and education achievement for all household members.
 
 
-# Datasets and documentation
+## Datasets and documentation
 When you download the round 2 data, you get 14 datasets. These are split into folders "DS00X" where X corrresponds to the following:
 
 1. Individual
@@ -37,12 +40,13 @@ The fastest way to find relevant variables in the dataset is to first search for
 Note that codebook section **"ED5: HQ19 11.5 Education: Enrolled now"** refers to variable **ED5** in the dataset which comes from **question 11.5** which is one **page 19** of the **household questionnaire**.
 
 
-# Key education variables in the individual dataset (DS0001)
+## Key education variables in the individual dataset (DS0001)
 I have included a list of some of the key education-related variables (and other basic variables) below. Note that this list might not be comprehensive (i.e. there may be some ed related vars which I have missed).
 
 
 ### Identifiers and other vars
 * STATEID
+* DISTID
 * PSUID
 * HHID
 * HHSPLITID
@@ -77,11 +81,13 @@ I have included a list of some of the key education-related variables (and other
 ### Education vars for children 8-11 (page 46 of questionnaire)
 * CH* 
 
-# Sample code to read in key variables
+## Sample code to read in key variables
 Setup chunk
 ```{r setup}
 library(tidyverse)
 library(haven)
+library(survey)
+library(srvyr)
 ```
 
 Open the individual dataset (36151-0001) and select key education variables
@@ -91,27 +97,65 @@ ihds_ind_dir <- "C:/Users/dougj/Documents/Data/IHDS/IHDS 2012/DS0001"
 ind_file <- file.path(ihds_ind_dir, "36151-0001-Data.dta")
 # read in just those variables that i need
 # this is much faster than reading in everything and then selecting
-df <- read_dta(ind_file, col_select = c(STATEID, PSUID, HHID, HHSPLITID, PERSONID, IDPSU, WT, RO3, RO7, RO5, starts_with("CS"), starts_with("TA"), starts_with("ED")) )
-
+df <- read_dta(ind_file, col_select = c(STATEID, DISTID, PSUID, HHID, HHSPLITID, PERSONID, IDPSU, WT, RO3, RO7, RO5, starts_with("CS"), starts_with("TA"), starts_with("ED")))
 ```
 
-Check response rates and then use weights to calculate average ASER score by state
+## Specify the survey design using the survey package
+While the user guide has a short description of the sample, a clearer and more complete description can be found [here](https://ihds.umd.edu/sites/default/files/publications/papers/technical%20paper%201.pdf). The dataset includes no variables for strata or fpc so we only specify a two-stage survey with the appropriate weights
+
+```{r}
+df <- df %>% mutate(psu_expanded = paste(STATEID, DISTID, PSUID, sep ="-"), hh_expanded = paste(STATEID, DISTID, PSUID, HHID, HHSPLITID, sep ="-"))
+# there is one row with a missing value for WT and most other variables drop that
+df <- df %>% filter(!is.na(WT))
+df_svy <- svydesign(id =~ psu_expanded + hh_expanded, weights =~ WT, data = df)
+```
+
+Calculate average ASER reading scores by state without using the survey package (but using weights), using the survey package, and then using the srvyr package. All yield the same answers. Note that the survey package and srvyr are both really slow. 
+
 ```{r}
 # confirm we are looking at the right variable by looking at the variable label from Stata
 attributes(df$TA8B)
 attributes(df$RO5)$label
+
 # look at response rates to TA8B by age --> looks like there are some NAs even for 8 to 11. 
 # unclear why that is.  
 df %>%
   group_by(RO5) %>%
   summarise(non_na_count = sum(!is.na(TA8B)), na_count = sum(is.na(TA8B)) )
 
-# obtain weighted mean ASER scores by state
-# first print out value labels for STATEID. (Can't figure out how to modify output so that it uses labels)
+# Calculate average reading score DIRECTLY
 attributes(df$STATEID)$labels
 df %>%
   group_by(STATEID) %>%
   summarise(weighted.mean(TA8B, na.rm = TRUE, w = WT))
+
+# Calculate average reading score USING SURVEY PACKAGE
+svyby(~TA8B, ~STATEID, df_svy, svymean, na.rm=TRUE)
+
+# Calculate average reading score USING SRVYR PACKAGE 
+# note that i can't use a formula to specify the ID var
+# also 
+df_srvyr <- df %>%
+  as_survey_design(c(psu_expanded, hh_expanded), weights = WT)
+
+df_srvyr %>%
+  group_by(STATEID) %>%
+  summarize(aser_mean = survey_mean(TA8B, na.rm =TRUE))
+
 ```
 
+
+## Temp - calculate ICC for ASER scores
+Argh.  This is why R is annoying! Not really sure if this works, but it seems like it should
+```{r}
+# calculate variance of TA8B
+aser_var <- var(df$TA8B, na.rm = TRUE)
+
+# fit a random effects model for PSUID and get the variance of that component
+library(lme4)
+temp <-df %>% select(TA8B,PSUID)
+fit <- lmer(TA8B ~(1|PSUID), data = temp)
+print("ICC is")
+attributes(VarCorr(fit)$PSUID)$stddev / aser_var
+```
 
