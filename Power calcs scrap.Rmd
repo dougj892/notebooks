@@ -1,0 +1,56 @@
+---
+title: "Scrap power calcs"
+output: html_notebook
+---
+
+## Summary
+This R notebook contains basic formulas for running power calcs, especially for a typical RCT
+
+## Formulas
+###  Standard baseline + end line clustered RCT with covariates
+This is the most common RCT I encounter.  We randomize at the cluster level, collect data for one baseline and one end line, and run an ANCOVA to estimate ATE.
+
+$$ MDE = M_J\sigma_y\sqrt{\frac{2\rho}{J}+\frac{2(1-\rho)(1-R_K^2)}{JK}} $$
+$$ M_J = F^{-1}_t\left(1-\frac{\alpha}{2},J\right) + F^{-1}_t\left(\beta,J\right) $$
+Where...
+
+1. $\sigma_y$ is the variance of the outcome variable.
+2. $\rho$ is ICC
+3. J is the number of clusters in treatment or control (not both). Assumed constant across T and C
+4. K is the number of units per cluster. Assumed constant across all clusters.
+5. $\alpha$ is significance level (usually .05)
+6. $\beta$ is power (usually .8)
+7. $R_K^2$ is the R squared from a regression of the outcome on the covariates
+
+
+
+```{r}
+
+mj <- function (j, alpha = .05, beta = .8) {
+  multiplier <- qt(1-alpha/2, j)+qt(beta,j)
+  return(multiplier)
+}
+
+mde <- function (j, k, sigmay, icc, rsq, alpha = .05, beta = .8) {
+  quant_under_sqrt <- (2*icc/j)+2*(1-icc)*(1-rsq)/(j*k)
+  effect <- mj(j, alpha, beta)*sigmay*(quant_under_sqrt^.5)
+  return(effect)
+}
+
+
+```
+
+Replicating the APRIGP power calcs
+```{r}
+villages <- 110
+hh_per_v <- 10
+icc <- 0.05
+rsquared <- 0
+sd_cons <- 721
+
+mde(villages, hh_per_v, sd_cons, icc, rsquared)
+
+
+
+```
+

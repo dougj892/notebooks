@@ -1,0 +1,91 @@
+---
+title: "IE for DFEs supplementary material"
+output: html_notebook
+---
+
+## Summary
+This notebook creates graphs and performs other calculations for the IE for DFEs paper.
+
+```{r setup}
+library(tidyverse)
+library(ggplot2)
+output_dir <- "C:/Users/dougj/Documents/Bayes stuff/Output"
+```
+
+## Graphs for Frequentist section
+
+
+### Testing for non-inferiority
+Our working paper proposes two candidate rules for deciding whether to scale up the new intervention
+
+* Rule 1: Null of no different between the two treatments against one-sided alternative that effect of treatment two is greater than treatment one. (Note that the current version of the text uses a two sided test but I have used a one sided test here since it makes the math slightly more straightforward)
+* Rule 2: Null that the effect of the new intervention is at least as large as the effect of the first intervention minus .1 against the alternative that the new intervention is larger than this.
+
+With these two rules, the probability of rejecting the null with the first rule is...
+
+$$ P(reject null, rule 1)=1-\Phi^{-1} \left({\frac{\Phi(1-\alpha_1 )se-\delta}{se}}\right) $$
+
+Where se is the standard error of the estimate, $\alpha_1$ is our significance level, and $\delta$ is the true effect size. Likewise, the probability of rejecting the null using rule 2 is...
+
+$$ P(reject null, rule 1)=1-\Phi^{-1} \left({\frac{\Phi(1-\alpha_2)se-\delta-\tau}{se}}\right) $$
+Where se and $\delta$ are the same as before, $\alpha_2$ is our new significance level, and $\tau$ is our non-inferiority threshold.  (.1 in the text)
+
+For an RCT with no baseline and equal size treatment and control groups, the standard error of the difference between treatment and control is...
+
+$$ \hat{\sigma_{\Delta}}=\sigma_y\sqrt{\frac{2}{N}} $$
+
+To simplify things further, we may define $\delta_{sd}=\delta/\sigma_y$ and $\tau_{sd}=\delta/\sigma_y$. Then we have...
+
+
+$$ P(reject null, rule 1)=1-\Phi^{-1} \left({\frac{\Phi(1-\alpha_1 )(2/N)^.5-\delta_{sd}}{(2/N)^.5}}\right) $$
+
+
+### Define the functions
+
+```{r}
+
+p1_reject <- function(deltasd, N, alpha = .05) {
+  se <- (2/N)^.5
+  prob <- 1-pnorm((qnorm(1-alpha)*se-deltasd)/se)
+  return(prob)
+}
+
+p2_reject <- function(deltasd, N, tausd, alpha = .05) {
+  se <- (2/N)^.5
+  prob <- 1-pnorm((qnorm(1-alpha)*se-deltasd-tausd)/se)
+  return(prob)
+}
+
+
+# test the probabilty is alpha if delta = 0
+p1_reject(0, 100)
+
+```
+
+### Graph the functions for various values of delta and N
+```{r}
+p <- ggplot(data = data.frame(x = 0), mapping = aes(x = x))
+fun.1 <- function(x) p1_reject(x, 100)
+fun.2 <- function(x) p2_reject(x, 100, .1)
+p + stat_function(fun = fun.1, aes(color = "Rule 1, N = 100")) + 
+  stat_function(fun = fun.2, aes(color = "Rule 2, N=100, tausd = .1")) + 
+  scale_color_manual(name = "Functions", values = c("red","blue")) +
+  scale_x_continuous("True effect size in standard deviations") + 
+  scale_y_continuous("Prob. scale new intervention")+
+  xlim(-.5,.5)
+
+    
+```
+
+
+### Flat vs Informative Priors
+```{r}
+fvi <- p + stat_function(fun = dnorm, args = list(sd = 70), aes(color = "Flat")) + 
+  stat_function(fun = dnorm,  args = list(sd = 10), aes(color = "Informative")) + 
+  scale_color_manual(name = "Priors", values = c("red","blue")) +
+  xlim(-100,100)
+fvi
+ggsave(file.path(graph_dir, "flat_v_informative.png"),fvi)
+```
+
+
