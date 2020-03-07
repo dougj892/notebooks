@@ -1,0 +1,12 @@
+---
+title: "Temp - testing beamer"
+output: beamer_presentation
+---
+
+# First slide
+- bullet points for first slide
+- another bullet point
+
+
+
+# Second slide

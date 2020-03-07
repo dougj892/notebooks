@@ -1,0 +1,51 @@
+---
+title: "Value added using EG data"
+output: html_notebook
+---
+
+The Educate Girls data includes several years' worth of panel data.  While the dataset does not include teacher assignment, it does include several student variables.  In this notebook, I first explore the data and then do other stuff. (At some point, I should break this up into multiple notebooks but putting it all in here for now.)
+
+## Overview of the data
+
+
+## Research ideas
+I have listed a few of the ways in which we could possibly use the EG data below.
+
+Note that none of these seem like a great idea.  The EG data is pretty sparse (for example, there are very few household covariates and no teacher assignment info).
+
+1. **Validate ASER as a measure of learning outcomes.**
+    1. Note that none of this is as convincing as the validity tests conducted by Vagh who compares ASER to other tests
+    1. Correlation over time
+    2. Test ASER in a school value add model. 
+        1. Good evidence that IRT-based tests do well on VAMs.  But if ASER has more measurement error, this might not hold for ASER.
+        1. Regress student ASER on previous year ASER, year dummies, school dummies (don't use school+year dummies I don't think)
+        2. Using CFR approach, test whether the value added is correlated with student characteristics
+    3. Look at whether an IRT model would perform better
+        1. We may compare the accuracy of the scores by using the IRT parameters themselves. (i.e. IRT estimates the optimal parameters and then performs optimal weighting.  We can use the parameters to estimate the variance of any linear combination of the parameters.)
+        2. Look at whether the IRT score has higher autocorrelation
+        3. Is the effect of EG larger for the new score?
+2. **Subgroup effects for EG**
+    1. We can probably increase precision by adding baseline school averages
+    2. Some subgroups that might be interesting
+        1. EG staff member assigned to the school
+        2. School effects
+        3. Baseline values (did they raise all boats or did they effect kids at the bottom end more?)
+        4. Quality of the school as measured by teacher absence or some other proxy (the idea being that students in bad schools may benefit more)
+        5. Variance of learning levels in the school
+3. **Estimate variance of school effects**
+    1. Unclear how to do this, but would likely be similar to Das and Bau approach
+4. **Validate summative assessments**
+    1. If we have summative assessment data for this year, we could look at correlation in school rankings
+    2. We could also estimate the impact of EG using summative assessment scores (Singh shows that there is still some signal in the noise of summative assessment scores. Karthik shows that if they had used summative assessment scores to estimate impact of Mindspark in Raj they would have generated 0 estimate. Useful to validate this in another context.)
+    3. If you do see an effect, you could look at the effect on treatment schools after the DIB
+
+### Explore the data
+
+```{r}
+library(tidyverse)
+data_path <- "C:/Users/dougj/Documents/Data/Education/EG DIB data for sharing/Data"
+
+
+```
+
+

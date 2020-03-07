@@ -1,0 +1,34 @@
+---
+title: "Baby names research"
+output: html_notebook
+---
+
+Load the dataset
+```{r}
+library(tidyverse)
+library(babynames)
+data("babynames")
+```
+
+Plot of frequency
+```{r}
+temp <- babynames %>%
+  filter(((name == "Elizabeth") & (sex == "F")) | ((name == "Douglas") & (sex == "M")) | ((name == "Isabella") & (sex == "F"))) 
+
+ggplot(temp, aes(x = year, y = n, color = name)) + geom_line()
+```
+
+The most popular names for the entire period and for each decade
+```{r}
+babynames %>%
+  group_by(sex, name) %>%
+  summarize(sum(n)) %>%
+  top_n(1)
+
+babynames %>%
+  mutate(decade = round(year, digits = -1)) %>% 
+  group_by(decade, sex, name) %>%
+  summarize(sum(n)) %>%
+  top_n(1)
+```
+
