@@ -32,3 +32,12 @@ babynames %>%
   top_n(1)
 ```
 
+All girl names with at least 1000 instances in the past 30 years
+```{r}
+girl_names <- babynames %>%
+  filter((sex == "F") & (year > 1980)) %>% 
+  group_by(name) %>%
+  summarise(sum = sum(n)) %>%
+  filter(sum > 1000)
+```
+
