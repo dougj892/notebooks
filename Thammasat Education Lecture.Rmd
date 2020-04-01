@@ -1,0 +1,188 @@
+---
+title: "Thammasat Education Lecture"
+output: html_notebook
+---
+
+This notebook contains graphs and analysis for a guest lecture for Ajarn Sunsiree's course on development econ for undergrads at Thammasat University. 
+
+```{r, results = 'hide', echo= FALSE}
+library(tidyverse)
+library(haven)
+
+bl_path <- "C:/Users/dougj/Documents/Data/Education/Barro and Lee"
+bl <- read_dta(file.path(bl_path, "BL2013_MF_v2.2.dta"))
+output <- "C:/Users/dougj/Documents/Thammasat/Ed lecture for Ajarn Sunsiree/R output"
+
+# To read in data directly from the Barro and Lee website, uncomment the line below
+# and comment the lines above.  
+# bl <- read_dta("http://www.barrolee.com/data/BL_v2.2/BL2013_MF_v2.2.dta")
+
+
+```
+
+
+## Create weighted averages
+
+The Barro and Lee datasets includes data for age groups, rather than at the country level.  Thus, I first aggregate up to the country level weighting by population.
+
+
+```{r}
+
+# Create special region for Thailand so that it is broken out
+bl$regions <- "All others"
+bl$regions[bl$region_code == "Advanced Economies"] <- "Advanced economies"
+bl$regions[bl$country == "Thailand"] <- "Thailand"
+
+# Create vector of all the variables that I would like to aggregate over
+vars <- c("lu", "lp", "lpc", "ls", "lsc", "lh", "lhc","yr_sch", "yr_sch_pri", "yr_sch_sec", "yr_sch_ter")
+
+# Aggregate up to the country level
+bl_c <- bl %>% 
+  filter(ageto <= 64) %>% 
+  group_by(regions, country, year) %>% 
+  summarize_at(vars, funs(weighted.mean(., w=pop)))
+
+# Aggregate up to the region level. Note that I don't take the weighted average here.
+# Otherwise, the figures would just reflect the values from India and China
+bl_r <- bl_c %>%
+  group_by(regions, year) %>%
+  summarise_at(vars, mean)
+
+
+```
+
+## Graphs of average years of schooling and primary completion by region
+
+Note that the variables in the dataset are a little confusing. For example, it is unclear it is unclear whether "lp" refers to the proportion of the population with only some primary or the proportion who have achieved at least some primary. I found [this blog post](http://devecondata.blogspot.com/2008/07/barro-lee-dataset.html) helpful. In particular, they mention that the sum of variables LU, LP, LS, and LH is 100.  
+
+This means, for example, that lp refers to the proportion of the population with at least some primary but no secondary or higher. Or, for example, to get the proportion of people who have at least completed primary you should take lpc+ls+lh
+
+
+```{r}
+# Plot average years of school by region
+ggplot(bl_r, aes(year, yr_sch, color = regions)) +
+  geom_line() + geom_point() +
+  labs(title = "Average years of schooling by country type", y = "Average years", color = "Type", caption = "Source: Barro and Lee (2011)")
+ggsave("avg years of time.png", path = output, width = 15, height = 11, units = "cm")
+
+# Plot proportion completing primary
+ggplot(bl_r, aes(year, (lpc+ls+lh), color = regions)) +
+  geom_line() + geom_point() +
+  ylim(0,100) +
+  labs(title = "Average primary completion by country type", y = "Average primary completion", color = "Type", caption = "Source: Barro and Lee (2011)")
+ggsave("avg primary completion.png", path = output, width = 15, height = 11, units = "cm")
+
+
+# Plot proportion completing secondary
+ggplot(bl_r, aes(year, (lsc+lh), color = regions)) +
+  geom_line() + geom_point() +
+  ylim(0,100) +
+  labs(title = "Average secondary completion by country type", y = "Average secondary completion", color = "Type", caption = "Source: Barro and Lee (2011)")
+ggsave("avg secondary completion.png", path = output, width = 15, height = 11, units = "cm")
+
+
+
+
+```
+
+
+
+```{r}
+
+# Create dataset with just a few countries
+df <- bl_c %>% 
+  filter(country %in% c("Spain", "Italy", "France", "Sierra Leone", "Liberia", "Thailand", "USA")) %>% 
+  filter(((regions == "Advanced economies") & (year == 1950))  | ((regions != "Advanced economies") & (year == 2010)))
+
+# Rename the region variable so that the legend is clearer
+df$regions[df$regions == "Advanced economies"] <- "Advanced economies (1950)"
+df$regions[df$regions == "All others"] <- "Others (2010)"
+df$regions[df$regions == "Thailand"] <- "Others (2010)"
+  
+ggplot(df, aes(x = reorder(country, yr_sch), y = yr_sch, fill = regions)) + 
+  geom_bar(stat = "identity") +
+  labs(x = "Country", y = "Avg years schooling", fill = "Type",
+       title = "Avg years schools for select countries in 1950 or 2010",
+       caption ="Source: Barro and Lee (2011)")
+ggsave("avg years select countries.png", path = output, width = 15, height = 11, units = "cm")
+```
+
+## Analyze Hanushek and Woesmann
+
+Look at the data from Hanushek and Woesmann's paper "Do Better Schools Lead to More Growth."  This dataset combines data on learning outcomes from a variety of sources such as TIMSS, PISA, and SACMEQ and uses normalizes using the US as a reference case (since NAEP results are comparable over time).
+
+Description of variables
+
+* **cognitive** Average test score in math and science, primary through end of secondary school, all years (scaled to PISA scale divided by 100).
+* **lowsec** Average test score in math and science, only lower secondary, all years (scaled to PISA scale divided by 100).
+* **basic**	Share of students reaching basic literacy (based on average test scores in math and science, primary through end of secondary school, all years).
+* **top** Share of top-performing students (based on average test scores in math and science, primary through end of secondary school, all years).
+
+
+
+```{r}
+library(readxl)
+hw_path <- "C:/Users/dougj/Documents/Data/Education"
+hw <- read_excel(file.path(hw_path, "hanushek+woessmann.cognitive.xls"), sheet = 2)
+
+ggplot(hw, aes(x = reorder(Country, basic), y = basic )) + 
+  geom_bar(stat = "identity") + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +  labs(x = "Country", y = "Proportion", title = "Share primary and secondary students achieving basic literacy and numeracy", caption ="Source: Hanushek and Woesmann, 2009")
+
+ggsave("h and w data.png", path = output, width = 32, height = 15, units = "cm")
+
+```
+
+Create graph from table 2.4 in Lant Pritchet's book
+```{r}
+hw_path <- "C:/Users/dougj/Documents/Data/Education"
+pr <- read_csv(file.path(hw_path, "Pritchet table 2.4.csv"))
+
+pr <- pr %>% 
+  select(-grade_9) %>% 
+  pivot_longer(cols = starts_with("basic"), names_to = "scenario", values_to = "basic") %>% 
+  mutate(scenario_f  = ordered(scenario, levels = c("basic", "basic_w_enrol", "basic_w_quality", "basic_w_both")))
+
+ggplot(pr, aes(x = Country, y= basic, fill = scenario_f)) +
+  geom_bar(stat ="identity", position = "dodge") + 
+  scale_fill_discrete(labels = c("Current", "With universal enrol to grade 9", "With medium-size increase in quality", "With both enrol + quality increase")) +
+  labs(y = "Proportion", title = "Proportion 15-16 year olds achieving basic literacy & numeracy by scenario", fill = "Current / hypothetical scenarios", caption = "Lant Pritchett The Rebirth of Education: Schooling aint Learning table 2.4") 
+ggsave("hypothetical learning achievement.png", path = output, width = 25, height = 15, units = "cm")
+
+```
+
+## Show learning profiles for some of the EG students
+
+```{r}
+eg_path <- "C:/Users/dougj/Documents/Data/Education/EG DIB data for sharing/Data"
+eg <- read_dta(file.path(eg_path, "EG DIB_Main Student Data.dta"))
+
+```
+
+Create graph showing average village scores over time for 5 randomly selected villages
+
+```{r}
+eg_long <- eg %>% 
+  select(village_id_rand, child_id_rand, starts_with("total_ely")) %>% 
+  filter(!is.na(total_ely1) & !is.na(total_ely2) & !is.na(total_ely3)) %>% 
+  pivot_longer(cols = starts_with("total_ely"), names_prefix = "total_ely", names_to = "year", values_to = "total_aser")
+
+# pick the 5 villages with the largest number of students
+# set.seed(12345)
+vills <- sample(unique(eg_long$village_id_rand), 5)
+eg_5_vills <- eg_long %>% 
+  group_by(village_id_rand, year) %>% 
+  summarize(aser = mean(total_aser), num_students = n()) %>% 
+  mutate(village = factor(village_id_rand)) %>% 
+  ungroup() %>% 
+  top_n(15, wt= num_students)
+
+ggplot(eg_5_vills, aes(x = year, y = aser, group = village, color = village)) +
+  geom_line() + 
+  labs(x = "Assessment year", y = "Total ASER score", title = "Learning profiles for 5 villages") +
+   theme(legend.position = "none") 
+ggsave("learning profile for 5 villages.png", path = output)
+```
+
+
+

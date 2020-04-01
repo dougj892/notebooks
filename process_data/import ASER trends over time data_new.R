@@ -40,7 +40,6 @@ for (file in files) {
   }
 }
 
-
 # Define a function to check whether all values are NA
 not_all_na <- function(x) any(!is.na(x))
 
@@ -52,10 +51,38 @@ full <- full %>% separate(State_old, into = c("scrap","temp"), sep = "-") %>% se
 # drop intermediate columns
 full <- full %>% select(-scrap, -scrap2)
 
-
+# Do a batch rename. See the excel doc "tabula-andhrapradesh - with notes" for more info
 full <- full %>%
-  rename(std3_reading = X3_tab4, std3_math = X3_tab8)
+  rename(num_dists=X2_tab1,
+         num_villages=X3_tab1,
+         num_hhs=X4_tab1,
+         not_enrolled=X7_tab2,
+         pvt_boys=X3_tab3,
+         pvt_girls=X5_tab3,
+         pvt=X7_tab3,
+         std3_read_std1_all=X3_tab4,
+         std3_read_std1_govt=X3_tab5,
+         std3_read_std1_pvt=X5_tab5,
+         std5_read_std2_all=X3_tab6,
+         std5_read_std2_govt=X3_tab7,
+         std5_read_std2_pvt=X5_tab7,
+         std3_subtract_all=X3_tab8,
+         std3_subtract_govt=X3_tab9,
+         std3_subtract_pvt=X5_tab9,
+         std5_divis_all=X3_tab10,
+         std5_divis_govt=X3_tab11,
+         std5_divis_pvt=X5_tab11)
+
+# Drop all unnamed variables
+full <- full %>% select(-starts_with("X"))
+
+# Divide all variables by 100 excep state, num*, and year
+divide.by.100 <- function(x, na.rm=FALSE) (x/100)
+cols <- setdiff(names(full), c("num_dists", "num_hhs", "num_villages", "year", "State"))
+full <- full %>% mutate_at(cols, divide.by.100)
+
 write_csv(full, "C:/Users/dougj/Documents/Data/Education/ASER trends over time/aser_trends.csv")
+
 
 
 

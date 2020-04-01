@@ -1,0 +1,74 @@
+---
+title: "Private schools descriptive stats"
+output: html_notebook
+---
+
+Initial descriptive states of private schools. Some stats to calculate
+
+* Average private school enrollment over time (just taking averages of states)
+* Trend in private and govt school scores and enrollment over time for one randomly chosen state
+
+```{r setup}
+library(tidyverse)
+library(broom)
+data_path <- "C:/Users/dougj/Documents/Data/Education"
+states <- read_csv(file.path(data_path, "ASER trends over time", "aser_trends.csv"))
+```
+
+Look at trends in stuff over time. Some quick observations:
+
+* There was a huge decline in scores in MP. Also substantial declines in Maharashtra, 
+* State data is really jumpy
+* A few states don't seem to have data for private (Chattisgarh, Gujrat)
+* In a few states, it seems like private scores are going up and govt down (Haryana, Bihar, )
+
+
+```{r}
+# Select just a few var types
+states_select <- states %>%
+  select("std3_read_std1_all", "pvt", "State", "year")
+
+
+
+# reshape to long
+states_long <- states_select %>%
+  pivot_longer(cols = setdiff(names(.),c("State", "year")), names_to = "series", values_to = "pct")
+
+
+# Randomly sample one state
+# state <- sample(unique(states$State),1)
+#state <- "madhyapradesh"
+# one_state <- states_long %>% filter(State == state)
+
+
+for (state in unique(states$State)) {
+  one_state <- states_long %>% filter(State == state)
+  g <- ggplot(one_state, aes(x = year, y = pct, color = series)) +
+    geom_line() +
+    ylim(c(0,1)) +
+    labs(title = state)
+  print(g)
+}
+```
+
+Look at the difference between private school enrollment for boys and girls. A few quick observations:
+
+* There are big differences across states.  NE generally has gender equality. Worst gender inequality in Haryana, Rajasthan, AP
+
+
+```{r}
+states <- states %>%
+  mutate(gender_diff =pvt_boys - pvt_girls,
+         state_factor = as.factor(State),
+         year_factor = as.factor(year))
+
+fit <- lm(gender_diff ~ 0 + state_factor + year_factor, data = states)
+tidy_fit <- tidy(fit)
+tidy_fit
+
+```
+
+
+
+
+

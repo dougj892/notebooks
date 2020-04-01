@@ -1,0 +1,86 @@
+---
+title: "Explore IHDS II School Data"
+output: html_notebook
+---
+
+This notebook explores the IHDS 2 school data.  For background on the IHDS 2 dataset, check out the notebook "Overview of IHDS 2012 Education Data"
+
+## Background on IHDS 2 school survey
+According to this [tech doc](https://ihds.umd.edu/sites/default/files/publications/papers/technical%20paper%201.pdf), for the second round they selected "up to two" schools and two medical facilities in each village they selected. If there was no school / medical facility in the village, they gathered data from the nearest one.
+
+It is unclear if they only did this for rural areas (they mention villags in the tech doc and it would be hard to do in urban areas).
+
+## Notes from initial data analysis
+
+1. It looks like they collected school data from nearly all PSUs (including urban ones).  Only about 5% of PSUs don't have a school (and these are evenly split between urban and rural)
+2. There are a lot of private aided schools.  Overall, there are twice as many private aided as unaided schools. This could be due to the fact that there is an error in the questionnaire though.
+
+**Overall, this really doesn't seem like it is likely a plausibly random sample**
+
+Other interesting variables we could look at:
+
+* We have caste of teaching staff (from DS8 - the school staff dataset)
+* We can get the total number of schools from the village dataset (DS12)
+
+
+```{r setup}
+library(tidyverse)
+library(haven)
+library(survey)
+library(srvyr)
+```
+
+Import the data
+
+```{r}
+ds9_path <- "C:/Users/dougj/Documents/Data/IHDS/IHDS 2012/DS0009"
+schools <- read_dta(file.path(ds9_path, "36151-0009-Data.dta"))
+```
+
+Merge with the hh file to determine if it also covers rural areas.  
+```{r}
+# import the household file
+ds2_path <- "C:/Users/dougj/Documents/Data/IHDS/IHDS 2012/DS0002"
+hhs <- read_dta(file.path(ds2_path, "36151-0002-Data.dta"), col_select = c(STATEID, DISTID, PSUID, HHID, HHSPLITID, IDPSU, URBAN2011))
+
+# create a single row for each PSU (assuming each PSU is either urban or rural and not both)
+psus <- hhs %>%
+  count(STATEID, DISTID, PSUID, URBAN2011) 
+
+# Merge this with the schools dataframe
+schools_merged <- full_join(psus, schools, by = c("STATEID", "DISTID", "PSUID"))
+
+# Number of PSUs in school file not found in hh dataset
+sum(is.na(schools_merged$URBAN2011))
+
+# Number of PSUs in hh file not found in school dataset
+sum(is.na(schools_merged$SCHOOLID))
+
+# Look at the number of schools in urban
+schools_merged %>% 
+  mutate(school_na = is.na(SCHOOLID)) %>% 
+  group_by(URBAN2011) %>%
+  summarize(mean(school_na))
+```
+
+Look at the proportion of schools by type (variable PS1)
+```{r}
+# get the response labels
+attributes(schools$PS1)$labels
+
+schools %>%
+  count(PS1)
+
+# Get the number of schools by type for each state.  
+# can't seem to show state labels
+attributes(schools$STATEID)$labels
+round(prop.table(table(schools$PS1, schools$STATEID),margin = 2),2)
+
+# mean number of students by school type
+schools %>% group_by(PS1) %>% summarise(mean(PS6B, na.rm = TRUE))
+
+```
+
+
+
+

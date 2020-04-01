@@ -1,0 +1,95 @@
+---
+title: "Explore IHDS panel dataset"
+output: html_notebook
+---
+
+This notebook explores the IHDS panel dataset. In particular, we look at enrollment data in the panel dataset. For a more general overview of the IHDS dataset, check out the R notebook "Overview of IHDS 2012 Education data".
+
+## Datasets
+There are 9 publicly available datasets -- one dataset for each combination of unit of observation (individuals, households, and eligible women) and data format (appended cross sections, wide panel, and long panel). In contrast to the cross section datasets, there are no panel datasets at the village level or higher. For a complete list of the datasets, see the Univ of Michigan ICPSR data site [here](https://www.icpsr.umich.edu/icpsrweb/DSDR/studies/37382/datadocumentation).
+
+The 9 publicly available datasets are...
+
+1. DS1 Individuals - Appended Cross-sections (Public-Use)
+2. DS3 Individuals - Wide Panel (Public-Use)
+3. DS5 Individuals - Long Panel (Public-Use)
+4. DS7 Households - Appended Cross-sections (Public-Use)
+5. DS9 Households - Wide Panel (Public-Use)
+6. DS11 Households - Long Panel (Public-Use)
+7. DS13 Eligible Women - Appended Cross-sections (Public-Use)
+8. DS15 Eligible Women - Wide Panel (Public-Use)
+9. DS17 Eligible Women - Long Panel (Public-Use)
+
+Each dataset includes both an R version and a stata version. Despite working in R, I prefer to use the **Stata** version. This is because, with the haven package, I have access to the Stata variable label (the pdf codebook doc also provides this info, but the variable label is quicker).  In addition, it seems like it is easy to accidentally modify the rda file.  (With Stata, you have to easy "write_dta" which I am unlikely to do accidentally.) 
+
+## Difference between appended, wide, and long
+The **appended** dataset contains all households surveyed in either round, including households in round 1 that couldn't be found in round 2 and vice versa.  The **long** dataset only includes households surveyed in both rounds.  (This is based on the number of households reported [here](https://www.icpsr.umich.edu/icpsrweb/content/DSDR/idhs-II-data-guide.html).  Number of rows in appended equals the total. Number of rows in long is double the number of households surveyed in both rounds.)
+
+The **wide** dataset only includes households surveyed in both rounds. It seems like the variables with the "X" prefix are for the first round. (This is based on the fact that for the age variable, RO5, the values for RO5 are generally higher than for XRO5 by about 7 years, though there are a lot of weird exceptions to this.)
+
+*Based on all of this, for the school enrollment analysis, I am going to use the individual long dataset.*
+
+
+## Data on school enrollment
+
+In 2012 questionnaire, they ask following questions about **all** members of the household who were in school in the past 12 months. 
+
+--> insert list of variables that they ask here.  page 4 and 5 of the questionnare
+
+In the 2012 questionnaire, they also ask more specific questions about all children aged 8-11. (Pages 6 and 7 of the questionnaire)
+
+--> check whether the questionnaire for the 2005 survey matches this
+
+
+```{r}
+library(tidyverse)
+library(haven)
+library(survey)
+
+# Open the Stata versions
+# panel_path <- "C:/Users/dougj/Documents/Data/IHDS/Combined panel (Stata)"
+# ind_app <- read_dta(file.path(panel_path, "DS0001", "37382-0001-Data.dta"))
+# ind_wide <- read_dta(file.path(panel_path, "DS0003", "37382-0003-Data.dta"))
+# ind_long <- read_dta(file.path(panel_path, "DS0005", "37382-0005-Data.dta"))
+# hh_app <- read_dta(file.path(panel_path, "DS0007", "37382-0007-Data.dta"))
+# hh_wide <- read_dta(file.path(panel_path, "DS0009", "37382-0009-Data.dta"))
+# hh_long <- read_dta(file.path(panel_path, "DS0011", "37382-0011-Data.dta"))
+
+# Open the R versions
+panel_path <- "C:/Users/dougj/Documents/Data/IHDS/Combined panel (R)"
+load(file.path(panel_path, "DS0001", "37382-0001-Data.rda"))
+ind_app <- da37382.0001
+# load(file.path(panel_path, "DS0003", "37382-0003-Data.rda"))
+# load(file.path(panel_path, "DS0005", "37382-0005-Data.rda"))
+# load(file.path(panel_path, "DS0007", "37382-0007-Data.rda"))
+# load(file.path(panel_path, "DS0009", "37382-0009-Data.rda"))
+# load(file.path(panel_path, "DS0011", "37382-0011-Data.rda"))
+# 
+
+```
+
+Identify the individuals in the appended dataset that are in one round but not the other
+
+```{r}
+# calculate the number of 
+ind_app %>% mutate(first_na = is.na(PID2005),second_na = is.na(PID2012)) %>% 
+  group_by(SURVEY, first_na, second_na) %>% 
+  summarise(mean(RO5))
+
+```
+Look at average household characteristics of kids who go to private school vs. govt school. 
+
+First figure out what kids we have school enrollment data for in the first place.  
+
+Then look at stuff like...
+
+
+
+Note that these results are not weighted.
+
+
+```{r}
+#
+ind_app %>% count(CS4, RO5)
+```
+

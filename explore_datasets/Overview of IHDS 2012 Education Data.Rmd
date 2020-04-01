@@ -32,6 +32,8 @@ When you download the round 2 data, you get 14 datasets. These are split into fo
 
 Note that, unlike the panel dataset, there is only one version of the files. (For the panel dataset, there are different versions of the files corresponding to different ways of merging/combining the two rounds of data.) More information about each of the datasets, including which variables to use for weighting observations when using each dataset and how to merge the datasets, can be found [here](https://www.icpsr.umich.edu/icpsrweb/content/DSDR/idhs-II-data-guide.html). According to documentation, merge on stateid, distid, psuid, hh, hhsplitid
 
+In addition to the official user guide, this [document](https://ihds.umd.edu/sites/default/files/publications/papers/technical%20paper%201.pdf) seems to have a lot more information on the sampling strategy.  In particular, it talks a lot more about things like the facility sampling strategy.
+
 Documentation for the 2012 dataset is saved in the "IHDS/IHDS 2012" folder in my data folder. The user guide contains basic information about the sampling strategy and various constructed variables (e.g. the consumption variables). The data guide seems to just duplicate this information. To figure out which variables to use, go to the codebooks and questionnaires located in each of the 
 
 ### Finding variables in the datasets
@@ -158,4 +160,3 @@ fit <- lmer(TA8B ~(1|PSUID), data = temp)
 print("ICC is")
 attributes(VarCorr(fit)$PSUID)$stddev / aser_var
 ```
-
