@@ -1,0 +1,50 @@
+---
+title: "Analyze SP response data"
+output: html_notebook
+---
+
+
+
+```{r setup}
+library(tidyverse)
+library(readxl)
+path <- "C:/Users/dougj/Dropbox/Covid Social Protection/Data/Clean"
+```
+
+```{r}
+covsp <- read_csv(file.path(path, "ugo_april_10_clean.csv"))
+fdx_fas <- read_xlsx(file.path(path, "fdx_fas_latest.xlsx"))
+
+# filter for useful variables in the FDX, FAS dataset
+fdx_fas <- fdx_fas %>% transmute(country.x, ccode,
+          has_account = `fdx_Account (% age 15+)`,
+          has_id = `fdx_Has a national identity card (% age 15+)`,
+          has_mobile = `fdx_Mobile money account (% age 15+)`,
+          bank_branches = ifc_i_branches_A1_pop,
+          coop_branches = ifc_i_branches_A2_pop,
+          mf_branches = ifc_i_branches_A3B1a_pop,
+          atms = ifc_i_ATMs_pop,
+          mobile_agents = ifc_i_mob_agent_active_pop,
+          bank_agents = ifc_i_nonbranch_A1_pop,
+          region,
+          income_level)
+
+
+```
+
+Pivot the covsp data and look at correlation with banking infrastructure
+
+```{r}
+cov_wide <- covsp %>% 
+  count(ccode, simp_type) %>% 
+  pivot_wider(names_from = "simp_type", values_from = n) 
+
+
+merged <- cov_wide %>% 
+  inner_join(fdx_fas) %>% 
+  mutate_if(is.numeric , replace_na, replace = 0) %>% 
+  filter(!is.na(income_level))
+
+merged %>% group_by(income_level) %>% summarize_all(mean)
+```
+

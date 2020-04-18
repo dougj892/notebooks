@@ -1,0 +1,55 @@
+---
+title: "Covid analysis"
+output: html_notebook
+---
+
+Load tidyverse and grab data from the JHU github repo.
+
+```{r setup}
+library(tidyverse)
+library(lubridate)
+
+url <- "https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv"
+country_cases <- read_csv(url) 
+
+# create a long version of the dataset.  
+# note that this code only works for dates in year 2020 but this seems like 
+# an Ok hack for now.
+country_long <- country_cases %>% 
+  pivot_longer(cols = ends_with('20'), names_to = "date", values_to = "cases") %>% 
+  mutate(date = mdy(date), country = `Country/Region`, log_cases = log(cases))
+
+```
+
+Filter for The Philipines and show cases over time.
+
+```{r}
+phils <- country_long %>% 
+  filter(country == "Philippines") 
+
+ggplot(phils, aes(x = date, y = cases)) + 
+  geom_line() +
+  scale_y_log10() +
+  labs(title = "Philippines Total Cases")
+```
+
+
+Look at covid cases in Georgia using data from the New York Times
+
+```{r}
+url <- "https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv"
+county_cases <- read_csv(url)
+
+county_cases <- county_cases %>% 
+   mutate(date = ymd(date))
+
+```
+Filter for Clarke and neighbors and then plot the cases by county
+```{r}
+clarke <- county_cases %>% 
+  filter((county %in% c('Clarke', 'Oconee', 'Madison', 'Barrow', 'Jackson')) & (state == 'Georgia'))
+         
+ggplot(clarke, aes(x = date, y = cases, group = county, color = county)) +
+  geom_line()
+```
+

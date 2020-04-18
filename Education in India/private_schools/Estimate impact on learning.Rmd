@@ -1,0 +1,95 @@
+---
+title: "Estimate impact of private schools on learning using ASER data"
+output: html_notebook
+---
+
+This notebook uses ASER state and district data to estimate the impact of private schools on learning in India between 2006 and 2011/14.  The approach used is the same as that of Hsieh and Urquiola and Bold et al (2011).
+
+Our basic, simplest model is...
+
+$$ y_{dt} = \gamma_d + \delta_t + \beta P_{dt}+\varepsilon_{dt} $$
+Where d indexes district, t indexes year, y are average ASER learning outcomes, and P is the proportion of children aged 6-14 attending private school. Our identifying assumption is that P is not correlated with $\varepsilon_{dt}$ which is a lot more plausible since we are dealing with district averages rather than individual scores.
+
+
+
+```{r setup, results = "hide"}
+library(tidyverse)
+library(plm)
+library(rlang)
+library(broom)
+data_path <- "C:/Users/dougj/Documents/Data/Education"
+states <- read_csv(file.path(data_path, "ASER trends over time", "aser_trends.csv"))
+dists <- read_csv(file.path(data_path, "ASER District Data", "Clean", "aser_district_5_or_6.csv"))
+```
+
+
+## State-level analysis
+
+Loop over all of the outcomes. Use both within and first differencing. Run with and without MP.
+
+
+```{r}
+
+# Create vector of all learning outcome variables
+outcomes <- str_subset(names(states), "^std.*all$")
+states <- states %>%
+  mutate(state_factor = as.factor(State), year_factor = as.factor(year)) 
+
+
+for (y in outcomes) {
+  print(y)
+  # create string of formula. 
+  rx <- paste(y, "~ state_factor + year_factor + pvt")
+  
+  print("Without MP")
+  fit_no_mp <- plm(rx, data = states, subset = (State != "madhyapradesh"), index = "state_factor")
+  fit_no_mp_tidy <- tidy(fit_no_mp)
+  print(fit_no_mp_tidy[fit_no_mp_tidy$term == "pvt",])
+
+  
+  print("With MP")
+  fit_with_mp <- plm(rx, data = states, index = "state_factor")
+  fit_tidy <- tidy(fit_no_mp)
+  print(fit_no_mp_tidy[fit_no_mp_tidy$term == "pvt",])
+}
+
+
+```
+
+
+Try doing the same thing with less duplication by doing the following:
+
+* Create vector of outcomes
+* Create vector of subsets
+* Create vector of methods (fixed effect versus first differencing)
+* Use expand.grid to create a set of 
+* Create a function that takes each and spits out the estimate of private and the CI
+* use purrr's map2 and apply it to the expanded set of vectors
+
+```{r}
+# Create factor variable for states
+states <- states %>%
+  mutate(state_factor = as.factor(State), year_factor = as.factor(year)) 
+
+
+# Create data frame of model inputs
+outcomes <- str_subset(names(states), "^std.*all$")
+sub_data <- c("!is.na(states$State)", 'states$State != "madhyapradesh"')
+model_types <- c("within", "fd")
+models <- expand.grid(y = outcomes, condition = sub_data, effect = model_types) %>% 
+  mutate_all(as.character)
+
+# Create a function which takes as input the outcome variable, the subset condition, and the approach and fits fixed effect / first difference model
+fit_plm <- function(y, condition, effect) {
+  # Create the formula to use in all models
+  rx <- paste(y, "~ state_factor + year_factor + pvt")
+  log_vec <- eval(parse(text = condition))
+  plm(rx, data = states[log_vec,], index = "state_factor", model = effect)
+}
+
+t <- pmap(models, fit_plm) %>% map(tidy) %>%  map(~ .x[.x$term =="pvt",]) 
+results <- bind_cols(bind_rows(t), models)
+```
+
+
+

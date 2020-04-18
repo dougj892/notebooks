@@ -1,0 +1,188 @@
+---
+title: "IHDS private school analysis"
+output: html_notebook
+---
+
+Use IHDS panel to estimate:
+
+1. Whether there are state or district "fixed" effects for private school enrolment
+    a. regress enrolment in private school on a bunch of stuff. Perhaps use the Duflo et al Frisch Waugh method 
+2. Assess whether the increase in private schools is causing an increase in segregation by religion or caste
+    a. if possible, do this within private schools as well
+    
+    
+## Data
+I use the following key variables from IHDS in this analysis
+
+Individual education variables
+
+* **CS_** - Various individual education variables including CS4, school type
+* **TA_** - ASER scores for kids 8-11 and a few questions about school including whether the teacher is nice (TA6), whether kid enjoys school (TA5)
+* **CH_** - Various questions for kids 8-11 related to school and health including whether child is a good student (CH15), whether teacher biased (CH11), local teacher (CH8), fair teacher (CH9), good teacher (CH10), teacher attendance (CH6), and what seems to be a unique code for each school in the area (CH22)
+
+
+Other individual variables
+
+* **RO5** - Age
+* **RO3** - Sex
+
+Household 
+
+* **ED_** - Various education variables including hh head literacy (ED2), head English ability (ED3),  head years of school (EDUC7)
+* **assets** - A measure of total assets (unclear what this is exactly)
+* **income** - A measure of income
+* **groups** - Caste & religion
+* **hheduc** - HH head education 
+* **Npersons** - Number of people in hh 
+* **copc** - HH Consumption per capita
+
+
+```{r setup, results='hide'}
+library(tidyverse)
+library(haven)
+library(survey)
+library(srvyr)
+library(purrr)
+library(ggrepel)
+library(broom)
+```
+
+
+## Import the data and inspect labels
+
+Import IHDS 2012 data.
+```{r}
+ihds_ind_dir <- "C:/Users/dougj/Documents/Data/IHDS/IHDS 2012/DS0001"
+ind_file <- file.path(ihds_ind_dir, "36151-0001-Data.dta")
+# read in just those variables that i need
+# this is much faster than reading in everything and then selecting
+
+cols <- c("STATEID", "DISTID", "PSUID", "INCOME", "HHID", "HHSPLITID", "PERSONID", "IDPSU", "WT","GROUPS", "HHEDUC", "NPERSONS", "NCHILDM", "NCHILDF", "COPC", "ASSETS", "RO3", "RO5", "RO7", "URBAN4_2011")
+ihds_2012 <- read_dta(ind_file, col_select = 
+                        c(cols, starts_with("TA"), starts_with("CH"),starts_with("CS"), starts_with("ED")))
+
+# ihds_2012 <- read_dta(ind_file, col_select = c(STATEID, DISTID, PSUID, HHID, HHSPLITID, PERSONID, IDPSU, WT, RO3, RO7, RO5, starts_with("CS"), starts_with("TA"), starts_with("ED")))
+```
+
+Look at the variable labels
+```{r}
+# Print the labels for all the variables in the dataset
+#map(ihds_2012, function(x) attributes(x)$label)
+
+# print the lables for the CS4 variable in particular
+attributes(ihds_2012$CS4)$labels
+
+```
+
+
+## Compare with ASER data
+
+Check that the IHDS 2012 data on private school enrolment is similar to the ASER data. While the data does not match completely (and Mizoram is a big outlier), overall the match is quite good.
+
+```{r}
+# look at enrolment rates by age up to age 18
+round(prop.table(table(ihds_2012$CS3Y, ihds_2012$RO5), 2),2)[,4:19]
+
+
+# create a new binary variable for govt vs private
+# I am considering govt aided to be private for now to conform to ASER definitions
+# also create a variable for whether or not the child is school age (6-14)
+ihds_2012 <- ihds_2012 %>% mutate(private = ifelse(CS4 %in% c(3, 4, 5, 6, 12), 1, 0),
+                                  school_age = ifelse((RO5 >=6 & RO5 <= 14), 1, 0))
+
+# Create weighted means by state for school age children
+states_pvt <- ihds_2012 %>%
+  filter(school_age ==1) %>% 
+  group_by(STATEID = as_factor(STATEID)) %>%
+  summarise(ihds_pvt = weighted.mean(private, na.rm = TRUE, w = WT)) %>% 
+  mutate(State = str_replace(STATEID, "...$", ""))
+
+# merge to get state abbreviations
+state_names <- read_csv(file.path("C:/Users/dougj/Documents/Data/IHDS", "ihds_state_names.csv"))
+
+# Merge to get state names
+states_pvt <- merge(states_pvt, state_names, by.x = "State", by.y = "ihds_state_name") %>% 
+  select(State, state_abbr, ihds_pvt)
+
+```
+
+Import ASER data, merge, and plot ASER vs. IHDS
+```{r}
+
+aser_path <- "C:/Users/dougj/Documents/Data/Education"
+aser <- read_csv(file.path(aser_path, "ASER trends over time", "aser_trends.csv"))
+aser <- aser %>% filter(year == 2012) %>% select(State, state_abbr, pvt) %>% rename(aser_pvt = pvt)
+
+merged_pvt <- merge(states_pvt, aser, by = "state_abbr")
+
+ggplot(merged_pvt, aes(x = ihds_pvt, y = aser_pvt, label = state_abbr)) +
+  geom_point() + 
+  geom_abline(intercept = 0, slope = 1, color="orange") +
+  geom_label(size = 3) 
+
+cor(merged_pvt$aser_pvt, merged_pvt$ihds_pvt)
+```
+
+
+## Assess state/district fixed effects
+I perform a really crude analysis to look at whether there are state fixed effects in 
+
+
+```{r}
+
+
+# Create variables for the number of other boys / girls
+# Note that this is only an approximation since nchildm/f gives the number of boys/girls 0-14 not 6-14
+# also note that RO3 is 1 for males and 2 for females so RO3-1 is a binary indicator for girl 
+# and 2-RO3 is a binary for boyss
+ihds_2012 <- ihds_2012 %>% mutate(ngirls = NCHILDF-(RO3-1),
+                                nboys = NCHILDM - (2-RO3))
+
+# Convert columns of type haven_labelled to factors
+ihds_fac <- as_factor(ihds_2012) %>% mutate(ngirls = as.numeric(ngirls), nboys = as.numeric(nboys))
+```
+
+
+```{r}
+
+
+# explanatory variables
+explanatory_vars  <- c("STATEID", "ASSETS", "INCOME", "GROUPS", "URBAN4_2011", "HHEDUC",  "RO5" ,"RO3", "ED2", "COPC", "ngirls", "nboys")
+
+# Create a formula to use in the model
+form <- as.formula(paste("private", paste(paste(explanatory_vars, collapse=" + "), "-1"), sep=" ~ "))
+
+
+# fit a linear model 
+basic <- lm(form, ihds_fac, subset = school_age == 1, weights = WT)
+summary(basic)
+
+# Create a basic forest plot for the state fixed efffect estimates
+basic_tidy <- tidy(basic)
+
+state_terms <- basic_tidy %>% filter(str_detect(term, "STATEID")) %>% 
+  mutate(State = str_replace(term, "STATEID", ""), 
+         upper = estimate + 2*std.error, lower = estimate- 2*std.error) 
+
+ggplot(state_terms, aes(x = reorder(State, estimate), y = estimate)) + 
+  geom_pointrange(aes(ymin = lower, ymax = upper)) +
+  coord_flip() + geom_hline(yintercept = 0, col = "red")
+
+
+```
+
+
+
+
+## Assess impact of school on segregation
+
+check out NBER doc on how to measure segregation.
+
+
+
+
+
+
+
+
+

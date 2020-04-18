@@ -1,0 +1,19 @@
+---
+title: "Analyze India crowdsourced covid"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+# Note: need to use jsonlite rather than rjson (which doesn't seem to work)
+library(jsonlite)
+```
+
+Load the raw patient data from the crowd-sourced database.
+
+```{r}
+patients <- fromJSON(txt = "https://api.covid19india.org/raw_data.json")
+patients <- as.data.frame(patients$raw_data)
+
+```
+
