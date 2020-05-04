@@ -1,0 +1,62 @@
+---
+title: "TV ownership and watching from IHDS"
+output: html_notebook
+---
+
+```{r setup, message=FALSE}
+library(tidyverse)
+library(haven)
+```
+
+Import the data
+
+```{r}
+ihds_hh_dir <- "C:/Users/dougj/Documents/Data/IHDS/IHDS 2012/DS0002"
+hh_file <- file.path(ihds_hh_dir, "36151-0002-Data.dta")
+
+id_vars <- c("WT", "STATEID", "DISTID", "PSUID", "HHID", "HHSPLITID", "IDPSU", "WT", "COPC")
+
+partial <- read_dta(hh_file, n_max = 10)
+
+
+getLabels <- function(df) {
+  var_names <- colnames(df)
+  var_labels <- lapply(df, function(x) attributes(x)$label)
+  df_new <- tibble(var_mames = var_names, var_labels=var_labels)
+}
+vars <- getLabels(partial)
+
+# MM4C - # of hours TV children
+# MM3C - how often TV children
+# CGTV - owns TV
+an_vars <- c("MM4C", "MM3C", "CGTV")
+
+use_vars <- c(id_vars, an_vars)
+
+hh <- read_dta(hh_file, col_select = use_vars)
+```
+
+Generate quintiles from COPC and look at TV ownership and watching by quintile.
+
+```{r}
+hh <- hh %>% mutate(quintile = ntile(COPC,5))
+
+hh$child_watch <- hh$MM3C >=2
+
+hh$child_watch <- ifelse(is.na(hh$child_watch), 0, hh$child_watch)
+
+
+hh %>% 
+  group_by(quintile) %>% 
+  summarise_at(vars(CGTV, child_watch), funs(weighted.mean(., w=WT, na.rm = TRUE)))
+
+hh %>% 
+  summarise_at(vars(CGTV, child_watch), funs(weighted.mean(., w=WT, na.rm = TRUE)))
+
+
+# what portion of 
+hh %>% group_by(CGTV) %>% summarize(mean_watch =weighted.mean(child_watch, w=WT, na.rm = TRUE), n())
+
+```
+
+

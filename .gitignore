@@ -1,0 +1,7 @@
+# ignore all pdfs
+**.pdf
+**.html
+**.tex
+"Education in India/aservnas/.Rproj.user/"
+"Education in India/private_schools/.Rproj.user/"
+*.Rproj.user/

@@ -1,0 +1,37 @@
+---
+title: "Estimate prevalence from antibody survey"
+output: html_notebook
+---
+
+This notebook esitmates the prevalence of Covid 19 in a population using fictional data from antibody tests from a sample of people.
+
+I start with a very basic simple model and build up complexity from there.
+
+## SRS and perfect test
+
+With simple random sampling and perfect test accuracy, we just take the proportion of people who test positive in our sample as our estimate of prevalence. 
+
+We usually calcualte confidence intervals in the usual way. 
+
+
+## SRS with inaccurate (but validated )
+
+Antibody tests are typically not 100% accurate. Things get a little trickier when this is the case.
+
+
+
+
+## SRS with inaccurate test
+
+
+
+
+## Convenience sampling and inaccurate test
+
+This is the situation
+
+
+## Same as above, with time trends
+
+
+

@@ -13,7 +13,7 @@ data("babynames")
 Plot of frequency
 ```{r}
 temp <- babynames %>%
-  filter(((name == "Elizabeth") & (sex == "F")) | ((name == "Douglas") & (sex == "M")) | ((name == "Isabella") & (sex == "F"))) 
+  filter(((name == "Elizabeth") & (sex == "F")) | ((name == "Douglas") & (sex == "M")) | ((name == "Mara") & (sex == "F"))) 
 
 ggplot(temp, aes(x = year, y = n, color = name)) + geom_line()
 ```
