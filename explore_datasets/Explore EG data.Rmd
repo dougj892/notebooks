@@ -1,5 +1,0 @@
----
-title: "Explore EG data"
-output: html_notebook
----
-
